@@ -11,73 +11,63 @@
 #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # ==#
 
-export satellite_beta_angle
+export beta_angle
 
 """
-    function satellite_beta_angle(JD0::Number, a::Number, e::Number, i::Number, RAAN::Number, numDays::Integer)
+    function beta_angle(JD₀::Number, a::Number, e::Number, i::Number, RAAN::Number, Δt::Integer, pert::Symbol = :J2)
 
-Compute the beta angle of a satellite.
+Compute the beta angle of an orbit with semi-major axis `a` [m], eccentricity
+`e`, inclination `i` [rad], and initial right ascension of the ascending node
+`RAAN` [rad]. The orbit epoch, which is also the day in which the analysis will
+begin, is `JD₀` [Julian Day]. The analysis will be performed for each day during
+`Δt` days.
 
-# Args
+The argument `pert` can be used to select the perturbation terms that must be
+used when propagating the right ascencion of the ascending node. The possible
+values are:
 
-* `JD0`: Initial instant for the analysis [Julian day].
-* `a`: Semi-major axis of the orbit [m].
-* `e`: Orbit eccentricity.
-* `i`: Orbit inclination [rad].
-* `RAAN`: Right ascension of the ascending node at `JD0` [rad].
-* `numDays`: Number of days of the analysis.
+* `:J0`: Consider a Keplerian orbit.
+* `:J2`: Consider the perturbation terms up to J2.
+* `:J4`: Consider the perturbation terms J2, J4, and J2².
+
+If `pert` is omitted, then it defaults to `:J2`.
 
 # Returns
 
-The beta angle [deg] computed for each day.
+An array with two columns. The first one contains the days of the analysis and
+the second one contains the beta angle [rad] for each day.
 
 """
-function satellite_beta_angle(JD0::Number,
-                              a::Number,
-                              e::Number,
-                              i::Number,
-                              RAAN::Number,
-                              numDays::Integer)
-    # Constants
-    rad2deg = 180.0/pi
+function beta_angle(JD₀::Number, a::Number, e::Number, i::Number, RAAN::Number,
+                    Δt::Integer, pert::Symbol = :J2)
 
-    # Initialization of variables.
-    theta = 0.0                   # Sun angle relative to the inertial
-                                  # coordinate frame.
-
-    days = collect(0:1:numDays-1) # Vector of the days in which the beta angle
-                                  # will be computed.
-
-    N = [0.0; 0.0; 0.0]           # Versor normal to the orbital plane,
-                                  # represented in the inertial coordinate
-                                  # frame.
-
-    S = [0.0; 0.0; 0.0]           # Versor that points to the Sun, represented
-                                  # in the inertial coordinate frame.
+    # Vector of the days in which the beta angle will be computed.
+    days = collect(0:1:Δt-1)
 
     # Output vector.
-    beta = Vector{Float64}(undef,numDays)
+    β = Vector{Float64}(undef,Δt)
 
     # RAAN rotation rate [rad/day].
-    dOmega = dRAAN(a, e, i, :J2)*24.0*3600.0
+    δΩ = 86400dRAAN(a, e, i, pert)
 
     # Loop
-    for t in days
+    @inbounds @views for d in days
         # Compute the RAAN at the day d.
-        RAAN_d = RAAN + dOmega*t
+        Ω = RAAN + δΩ*d
 
         # Compute the versor N represented in the Inertial ref. frame.
-        Dio = angle_to_dcm(-i, -RAAN_d, 0.0, :XZX)
-        N_i = Dio*SVector{3}(0,0,1)
+        Dio = angle_to_dcm(-i, -Ω, 0, :XZX)
+        N_i = Dio[:,3]  # -> Dio*[0;0;1]
 
         # Compute the Sun position at noon (UT) represented in the Inertial ref.
         # frame.
-        S_i = sun_position_i(JD0+t)
+        S_i = sun_position_i(JD₀+d)
         S_i = S_i/norm(S_i)
 
-        # Get the angle between N_i and S_i [deg].
-        beta[t+1] = 90.0-acos(dot(N_i,S_i))*rad2deg
+        # Compute the beta angle, which is the angle between the Sun vector and
+        # the orbit plane.
+        β[d+1] = 90 - acosd(dot(N_i,S_i))
     end
 
-    [days beta]
+    return [days β]
 end
