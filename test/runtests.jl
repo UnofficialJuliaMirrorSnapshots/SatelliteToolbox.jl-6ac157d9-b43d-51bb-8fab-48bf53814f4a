@@ -6,6 +6,7 @@ using LinearAlgebra
 using Printf
 using ReferenceFrameRotations
 using SatelliteToolbox
+using SatelliteToolbox.SGP4
 using StaticArrays
 
 @testset "Atmospheric Models" begin
@@ -52,17 +53,10 @@ end
 println("")
 
 @testset "Orbit propagators" begin
-    cd("./orbit/propagators/")
-    include("./orbit/propagators/twobody.jl")
+    cd("./orbit/propagators")
     include("./orbit/propagators/sgp4.jl")
+    include("./orbit/propagators/twobody.jl")
     cd("../../")
-end
-println("")
-
-@testset "TLE Parser" begin
-    cd("./orbit/")
-    include("./orbit/tle.jl")
-    cd("../")
 end
 println("")
 
@@ -107,3 +101,9 @@ println("")
     include("./moon/moon_position.jl")
 end
 println("")
+
+@testset "Submodules" begin
+    cd("./submodules/")
+    include("./submodules/submodules.jl")
+    cd("../")
+end

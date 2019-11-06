@@ -1,8 +1,8 @@
-#== # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #
 # Description
 #
-#   Algorithm test for SGP4. All tests are based on [1].
+#   Algorithm test for SGP4 orbit propagator. All tests are based on [1].
 #
 #   Notice that only the tests related to the SGP4 in [1] are considered,
 #   because the SDP4 (orbit propagator for deep space) are not available yet in
@@ -15,7 +15,7 @@
 #   [1] Vallado, D. A., Crawford, P., Hujsak, R., Kelso, T. S (2006). Revisiting
 #       Spacetrack Report #3: Rev1. AIAA.
 #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # ==#
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 ################################################################################
 #                                   Test 01
@@ -50,9 +50,9 @@
         (orbm, r_TEME, v_TEME) = propagate!(orbp, t)
 
         # Compare the results.
-        for k = 1:length(t)
+        @inbounds for k = 1:length(t)
             # Assemble the result vector.
-            st_sgp4_result = [t[k]/60 r_TEME[k]'/1000 v_TEME[k]'/1000]
+            st_sgp4_result = vcat(t[k]/60, r_TEME[k]/1000, v_TEME[k]/1000)
 
             # Compare the values.
             @test st_sgp4_result[1] == SGP4_results[k,1]
@@ -65,8 +65,10 @@
         end
     end
 
-    # Test using the function `read_tle_from_string`
+    # Test using the function `propagate_to_epoch!`
     # ==========================================================================
+    #
+    # In this case, testing the function using only one case is enough.
 
     tle = read_tle_from_string(
         "1 23599U 95029B   06171.76535463  .00085586  12891-6  12956-2 0  2905",
@@ -79,34 +81,13 @@
     orbp = init_orbit_propagator(Val{:sgp4}, tle[1], sgp4_gc_wgs72)
 
     # Propagate the orbit.
-    t = SGP4_results[:,1]*60
-    (orbm, r_TEME, v_TEME) = propagate!(orbp, t)
-
-    # Compare the results.
-    for k = 1:length(t)
-        # Assemble the result vector.
-        st_sgp4_result = [t[k]/60 r_TEME[k]'/1000 v_TEME[k]'/1000]
-
-        # Compare the values.
-        @test st_sgp4_result[1] == SGP4_results[k,1]
-        @test st_sgp4_result[2] ≈  SGP4_results[k,2] atol=1e-8
-        @test st_sgp4_result[3] ≈  SGP4_results[k,3] atol=1e-8
-        @test st_sgp4_result[4] ≈  SGP4_results[k,4] atol=1e-8
-        @test st_sgp4_result[5] ≈  SGP4_results[k,5] atol=1e-9
-        @test st_sgp4_result[6] ≈  SGP4_results[k,6] atol=1e-9
-        @test st_sgp4_result[7] ≈  SGP4_results[k,7] atol=1e-9
-    end
-
-    # Test using the function `propagate_to_epoch!`
-    # ==========================================================================
-
     t = SGP4_results[:,1]   # [min.]
     (orbm, r_TEME, v_TEME) = propagate_to_epoch!(orbp, tle[1].epoch .+ t/1440)
 
     # Compare the results.
-    for k = 1:length(t)
+    @inbounds for k = 1:length(t)
         # Assemble the result vector.
-        st_sgp4_result = [t[k] r_TEME[k]'/1000 v_TEME[k]'/1000]
+        st_sgp4_result = vcat(t[k], r_TEME[k]/1000, v_TEME[k]/1000)
 
         # Compare the values.
         #
